@@ -1,6 +1,10 @@
+checkpoints/*
+.DS_Store
+example/.DS_Store
 example/checkpoints/*
 example/dataset/*
 example/logs/*
+example/cv.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

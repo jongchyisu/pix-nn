@@ -35,7 +35,7 @@ batch_size = 1
 code_shape = (batch_size, 3, 256, 256)
 num_epoch = 100
 data_shape = (batch_size, 3, 256, 256)
-context = mx.gpu()
+context = mx.cpu()
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
 sym_gen = generator.netG(opt)
