@@ -25,14 +25,6 @@ class AlignedDataset(BaseDataset):
 
         self.AB_paths = sorted(make_dataset(self.dir_AB))
 
-        assert(opt.resize_or_crop == 'resize_and_crop')
-
-        transform_list = [transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5),
-                                               (0.5, 0.5, 0.5))]
-
-        self.transform = transforms.Compose(transform_list)
-
         #### mine
         self.dataset_len = len(self.AB_paths)
 
@@ -47,21 +39,25 @@ class AlignedDataset(BaseDataset):
 
     @property
     def provide_data(self):
-        desc = [mx.io.DataDesc('code',(1, 3, 256, 256)),
+        desc = [mx.io.DataDesc('cond_data',(1, 3, 256, 256)),
                 mx.io.DataDesc('data',(1, 3, 256, 256))]
         return desc
 
-    # @property
-    # def provide_label(self):
-    #     return self._provide_label
+    @property
+    def provide_label(self):
+        desc = [mx.io.DataDesc('dloss_label', (1, )),
+                mx.io.DataDesc('l1_loss_label', (1, 3, 256, 256))]
+        return desc
 
     def next(self):
         if self.cur_batch < self.dataset_len:
             self.cur_batch += 1
-            data = [mx.nd.array(g(d[1])) for d,g in zip(self.provide_data, self.get_image(self.cur_batch))]
+            A,B = self.get_image(self.cur_batch)
+            label = None
+            # data = [mx.nd.array(g(d[1])) for d,g in zip(self.provide_data, self.get_image(self.cur_batch))]
             # label = [mx.nd.array(g(d[1])) for d,g in zip(self._provide_label, self.label_gen)]
             # return mx.io.DataBatch(data, label)
-            return mx.io.DataBatch(data)
+            return mx.io.DataBatch(data=[A,B], label=[label,B])
         else:
             raise StopIteration
 
@@ -86,46 +82,45 @@ class AlignedDataset(BaseDataset):
 
         img = mx.image.imdecode(open(AB_path).read()) # default is RGB
         
-        # resize to w x h
+        ## resize to w x h
+        ## TODO: make sure it's bicubic
         img = mx.image.imresize(img, self.opt.loadSize * 2, self.opt.loadSize)
-
-        import pdb
-        pdb.set_trace()
         
+        # convert to [0,1] then normalize
+        img = img.astype('float32')
+        img /= 255.0
         AB = mx.image.color_normalize(img, 0.5, 0.5)
 
-        # # crop a random w x h region from image
+        ## crop a random w x h region from image
         # tmp, coord = mx.image.random_crop(img, (150, 200))
         # print(coord)
         # plt.imshow(tmp.asnumpy()); plt.show()
 
-        # pytorch code
-        # AB = Image.open(AB_path).convert('RGB')
-        # AB = AB.resize((self.opt.loadSize * 2, self.opt.loadSize), Image.BICUBIC)
-        # AB = self.transform(AB)
-
-        import pdb
-        pdb.set_trace()
-
-        w_total = AB.size(2)
+        # separate A and B images
+        w_total = AB.shape[1]
         w = int(w_total / 2)
-        h = AB.size(1)
+        h = AB.shape[0]
         w_offset = random.randint(0, max(0, w - self.opt.fineSize - 1))
         h_offset = random.randint(0, max(0, h - self.opt.fineSize - 1))
 
-        A = AB[:, h_offset:h_offset + self.opt.fineSize,
-               w_offset:w_offset + self.opt.fineSize]
-        B = AB[:, h_offset:h_offset + self.opt.fineSize,
-               w + w_offset:w + w_offset + self.opt.fineSize]
+        tempA = mx.nd.slice_axis(AB, axis=0, begin=h_offset, end=h_offset + self.opt.fineSize)
+        A = mx.nd.slice_axis(tempA, axis=1, begin=w_offset, end=w_offset + self.opt.fineSize)
+        tempB = mx.nd.slice_axis(AB, axis=0, begin=h_offset, end=h_offset + self.opt.fineSize)
+        B = mx.nd.slice_axis(tempB, axis=1, begin=w + w_offset, end=w + w_offset + self.opt.fineSize)
 
+        # flipping
         if (not self.opt.no_flip) and random.random() < 0.5:
-            idx = [i for i in range(A.size(2) - 1, -1, -1)]
-            idx = torch.LongTensor(idx)
-            A = A.index_select(2, idx)
-            B = B.index_select(2, idx)
+            A = mx.ndarray.reverse(A, axis=1)
+            B = mx.ndarray.reverse(B, axis=1)
 
-        return {'A': A, 'B': B,
-                'A_paths': AB_path, 'B_paths': AB_path}
+        # change to BCWH format
+        A = mx.ndarray.swapaxes(A, 0, 2)
+        A = mx.ndarray.expand_dims(A, axis=0)
+        B = mx.ndarray.swapaxes(B, 0, 2)
+        B = mx.ndarray.expand_dims(B, axis=0)
+
+        return A,B
+        # return {'A': A, 'B': B,'A_paths': AB_path, 'B_paths': AB_path}
 
     def __len__(self):
         return len(self.AB_paths)

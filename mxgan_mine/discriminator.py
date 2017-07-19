@@ -13,6 +13,8 @@ def netD(opt):
         netD = define_D(opt.input_nc + opt.output_nc, opt.ndf,
                                       opt.which_model_netD,
                                       opt.n_layers_D, opt.norm, use_sigmoid)
+        netD = mx.sym.FullyConnected(netD, num_hidden=1, name='fc_dloss')
+        netD = mx.sym.LogisticRegressionOutput(netD, name='dloss')
         return netD
 
 def define_D(input_nc, ndf, which_model_netD,
@@ -26,7 +28,7 @@ def define_D(input_nc, ndf, which_model_netD,
     if which_model_netD == 'basic':
         netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, use_sigmoid=use_sigmoid)
     elif which_model_netD == 'n_layers':
-        netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, use_sigmoid=use_sigmoid)
+        netD = NLayerDiscriminator(input_nc, ndf, n_layers=n_layers_D, use_sigmoid=use_sigmoid)
     else:
         print('Discriminator model name [%s] is not recognized' %
               which_model_netD)
@@ -37,7 +39,6 @@ def define_D(input_nc, ndf, which_model_netD,
 
 # Defines the PatchGAN discriminator with the specified arguments.
 def NLayerDiscriminator(input_nc, ndf=64, bn_mom=0.9, n_layers=3, use_sigmoid=False, data=None):
-
         kw = 4
         padw = int(np.ceil((kw-1)/2))
 
@@ -89,7 +90,7 @@ def NLayerDiscriminator(input_nc, ndf=64, bn_mom=0.9, n_layers=3, use_sigmoid=Fa
         # sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]
 
         if use_sigmoid:
-            body = mx.sym.Sigmoid(data=body)
+            body = mx.sym.sigmoid(data=body)
             # sequence += [nn.Sigmoid()]
 
         # self.model = nn.Sequential(*sequence)
