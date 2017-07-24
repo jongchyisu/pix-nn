@@ -27,6 +27,7 @@ class GANBaseModule(object):
         self.context = context if isinstance(context, list) else [context]
         self.outputs_fake = None
         self.outputs_real = None
+        self.pred_fake = None
 
     def _save_temp_gradD(self):
         if self.temp_gradD is None:
@@ -135,42 +136,42 @@ class GANModule(GANBaseModule):
         # generate fake image
         self.modG.forward(mx.io.DataBatch([self.real_A], [self.real_B]), is_train=True)
         self.fake_B = self.modG.get_outputs()[0]
-        self.fake_B_l1 = self.modG.get_outputs()[1]
-        self.fake_B_l1_loss = mx.ndarray.mean(data=self.fake_B_l1+1.0, axis=[1,2,3])*128
-        
+        # self.fake_B_l1 = self.modG.get_outputs()[1]
+        # self.fake_B_l1_loss = mx.ndarray.mean(data=self.fake_B_l1+1.0, axis=[1,2,3])*128
+        self.G_L1.update(labels=[self.real_B], preds=[self.fake_B])
+
         # feed fake_AB into Discriminator
         self.temp_label[:] = 0
         fake_AB = mx.ndarray.concat(self.real_A, self.fake_B, dim=1)
         self.modD.forward(mx.io.DataBatch([fake_AB], [self.temp_label]), is_train=True)
         self.modD.backward()
         self._save_temp_gradD()
-
-        self.modD.update_metric(self.D_fake, [self.temp_label])
+        self.outputs_fake = self.modD.get_outputs()
+        self.D_fake.update(self.outputs_fake, [self.temp_label])
         
         # feed real_AB into Discriminator
         self.temp_label[:] = 1
         real_AB = mx.ndarray.concat(self.real_A, self.real_B, dim=1)
         self.modD.forward(mx.io.DataBatch([real_AB], [self.temp_label]), is_train=True)
         self.modD.backward()
+        self.outputs_real = self.modD.get_outputs()
+        self.D_real.update(self.outputs_real, [self.temp_label])
 
-        self.modD.update_metric(self.D_real, [self.temp_label])
-
-        # update discriminator
+        # update discriminator combining gradient from real_B and fake_B
         self._add_temp_gradD()
         self.modD.update()
-        self.outputs_real = self.modD.get_outputs()
 
         # update generator
         self.temp_label[:] = 1
         self.modD.forward(mx.io.DataBatch([fake_AB], [self.temp_label]), is_train=True)
-        pred_fake = self.modD.get_outputs()
+        self.pred_fake = self.modD.get_outputs()
+        self.G_GAN.update(self.pred_fake, [self.temp_label])
 
-        # self.G_L1.update(data, fake_B[0])
         self.modD.backward()
         diffD = self.modD.get_input_grads()
         
         diffD_slice = mx.ndarray.slice_axis(diffD[0], axis=1, begin=0, end=3)
-        self.modG.backward([self.fake_B_l1, diffD_slice])
+        self.modG.backward([diffD_slice])
         self.modG.update()
 
         # self.modG.update_metric(self.G_GAN, [self.temp_label])
@@ -180,8 +181,8 @@ class GANModule(GANBaseModule):
         real_A = util.tensor2im(self.real_A)
         fake_B = util.tensor2im(self.fake_B)
         real_B = util.tensor2im(self.real_B)
-        # import pdb
-        # pdb.set_trace()
+        import pdb
+        pdb.set_trace()
         return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
 

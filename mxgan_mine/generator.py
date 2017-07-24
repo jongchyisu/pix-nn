@@ -28,8 +28,8 @@ def netG(opt):
     netG_reconstruct = define_G(opt.input_nc, opt.output_nc, opt.ngf,
                     opt.which_model_netG, opt.norm, opt.use_dropout)
     netG_l1_loss = mx.sym.MAERegressionOutput(data=netG_reconstruct, name='l1_loss')
-    netG = mx.symbol.Group([netG_reconstruct, netG_l1_loss])
-    return netG
+    # netG = mx.symbol.Group([netG_reconstruct, netG_l1_loss])
+    return netG_l1_loss
 
 
 def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False):
