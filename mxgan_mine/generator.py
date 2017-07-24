@@ -25,9 +25,10 @@ def netG(opt):
     # net = deconv2d_act(
     #     net, ishape=(ngf, 16, 16), oshape=oshape[-3:], kshape=(4, 4), prefix="g4", act_type=final_act)
     # return net
-    netG = define_G(opt.input_nc, opt.output_nc, opt.ngf,
+    netG_reconstruct = define_G(opt.input_nc, opt.output_nc, opt.ngf,
                     opt.which_model_netG, opt.norm, opt.use_dropout)
-    netG = mx.sym.MAERegressionOutput(data=netG, name='l1_loss')
+    netG_l1_loss = mx.sym.MAERegressionOutput(data=netG_reconstruct, name='l1_loss')
+    netG = mx.symbol.Group([netG_reconstruct, netG_l1_loss])
     return netG
 
 
@@ -83,7 +84,7 @@ def UnetGenerator(input_nc, output_nc, ngf=64, bn_mom=0.9, workspace=256, use_dr
 # Defines the submodule with skip connection.
 # X -------------------identity---------------------- X
 #   |-- downsampling -- |submodule| -- upsampling --|
-def UnetSkipConnectionBlock(data, dim, name, use_dropout, padding_type, stride=(1,1), bn_mom=0.9, workspace=256):
+def UnetSkipConnectionBlock(data, dim, name, use_dropout, padding_type, stride=(1,1), bn_mom=0.9, workspace=256, outermost=False, innermost=False,):
     self.outermost = outermost
 
     cond_data = mx.sym.Variable("cond_data") if cond_data is None else cond_data
@@ -132,7 +133,7 @@ def ResnetGenerator(input_nc, output_nc, ngf=64, bn_mom=0.9, workspace=256, use_
     body = mx.sym.pad(data=cond_data, pad_width=(0,0,0,0,3,3,3,3), mode='reflect')
     body = mx.sym.Convolution(data=body, num_filter=ngf, kernel=(7, 7), pad=(0,0),
                                   name='conv0', workspace=workspace)
-    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0')
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom)
     body = mx.sym.Activation(data=body, act_type='relu', name='relu0')
 
     n_downsampling = 2
@@ -152,12 +153,12 @@ def ResnetGenerator(input_nc, output_nc, ngf=64, bn_mom=0.9, workspace=256, use_
 
         body = mx.sym.Deconvolution(data=body, num_filter=int(ngf * mult / 2), kernel=(3, 3), stride=(2, 2),
                                   pad=(1, 1), workspace=workspace)
-        body = mx.sym.pad(data=body, pad_width=(0,0,0,0,1,1,1,1), mode='constant', constant_value=0)
+        body = mx.sym.pad(data=body, pad_width=(0,0,0,0,1,0,1,0), mode='constant', constant_value=0)
 
         body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom)
         body = mx.sym.Activation(data=body, act_type='relu')
 
-    body = mx.sym.pad(data=cond_data, pad_width=(0,0,0,0,3,3,3,3), mode='reflect')
+    body = mx.sym.pad(data=body, pad_width=(0,0,0,0,3,3,3,3), mode='reflect')
     body = mx.sym.Convolution(data=body, num_filter=output_nc, kernel=(7, 7), pad=(0, 0), workspace=workspace)
     body = mx.sym.Activation(data=body, act_type='tanh')
 
@@ -174,7 +175,7 @@ def residual_unit(data, dim, name, use_dropout, padding_type, stride=(1,1), bn_m
     elif padding_type == 'zero':
         data_pad = mx.sym.pad(data=data, pad_width=(0,0,0,0,1,1,1,1), mode='constant', constant_value=0)
 
-    bn1 = mx.sym.BatchNorm(data=data_pad, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn1')
+    bn1 = mx.sym.BatchNorm(data=data_pad, fix_gamma=False, momentum=bn_mom, eps=2e-5)
     act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
     conv1 = mx.sym.Convolution(data=act1, num_filter=dim, kernel=(3,3), stride=stride, pad=(0,0),
                                   no_bias=True, workspace=workspace, name=name + '_conv1')
@@ -188,7 +189,7 @@ def residual_unit(data, dim, name, use_dropout, padding_type, stride=(1,1), bn_m
     elif padding_type == 'zero':
         conv1_pad = mx.sym.pad(data=conv1, pad_width=(0,0,0,0,1,1,1,1), mode='constant', constant_value=0)
 
-    bn2 = mx.sym.BatchNorm(data=conv1_pad, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn2')
+    bn2 = mx.sym.BatchNorm(data=conv1_pad, fix_gamma=False, momentum=bn_mom, eps=2e-5)
     act2 = mx.sym.Activation(data=bn2, act_type='relu', name=name + '_relu2')
     conv2 = mx.sym.Convolution(data=act2, num_filter=dim, kernel=(3,3), stride=(1,1), pad=(0,0),
                                   no_bias=True, workspace=workspace, name=name + '_conv2')
