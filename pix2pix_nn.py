@@ -9,6 +9,7 @@ from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
 from util.visualizer import Visualizer
+from data.mxnet_iter import AlignedIter
 
 # Load dataset (from pix2pix code)
 opt = TrainOptions().parse()
@@ -17,9 +18,11 @@ if opt.gpu_ids == []:
 else:
     opt.context = [mx.gpu(gpu_ids) for gpu_ids in opt.gpu_ids]
 
-data_loader = CreateDataLoader(opt)
+# data_loader = CreateDataLoader(opt)
 # dataset = data_loader.load_data()
-dataset_size = data_loader.dataset.dataset_len
+# dataset_size = data_loader.dataset.dataset_len
+data_iter = AlignedIter(opt)
+dataset_size = data_iter.dataset_len
 print('#training images = %d' % dataset_size)
 
 # # TensorBoard logging file
@@ -35,7 +38,9 @@ visualizer = Visualizer(opt)
 total_steps = 0
 for epoch in range(1, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
-    for i, data in enumerate(data_loader.dataset):
+    data_iter.reset()
+    # for i, data in enumerate(dataset):#data_loader.dataset
+    for data in data_iter:
         iter_start_time = time.time()
         total_steps += opt.batchSize
         epoch_iter = total_steps - dataset_size * (epoch - 1)

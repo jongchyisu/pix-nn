@@ -1,21 +1,18 @@
 import os.path
 import random
-import torchvision.transforms as transforms
-#import torch
 from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
 from PIL import Image
 import mxnet as mx
 
-class AlignedDataset(BaseDataset):
-
-    def initialize(self, opt):
+class AlignedIter(mx.io.DataIter):
+    def __init__(self, opt):
         # self._provide_data = zip(data_names, data_shapes)
         # self._provide_label = zip(label_names, label_shapes)
-        #self.num_batches = num_batches
+        # self.num_batches = num_batches
         # self.data_gen = data_gen
         # self.label_gen = label_gen
-        #self.get_image = get_image
+        # self.get_image = get_image
         self.cur_batch = 0
 
         #### pytorch
@@ -61,22 +58,6 @@ class AlignedDataset(BaseDataset):
             return mx.io.DataBatch(data=[A,B], label=[label,B])
         else:
             raise StopIteration
-
-    #### pytorch
-    # def initialize(self, opt):
-    #     self.opt = opt
-    #     self.root = opt.dataroot
-    #     self.dir_AB = os.path.join(opt.dataroot, opt.phase)
-
-    #     self.AB_paths = sorted(make_dataset(self.dir_AB))
-
-    #     assert(opt.resize_or_crop == 'resize_and_crop')
-
-    #     transform_list = [transforms.ToTensor(),
-    #                       transforms.Normalize((0.5, 0.5, 0.5),
-    #                                            (0.5, 0.5, 0.5))]
-
-    #     self.transform = transforms.Compose(transform_list)
 
     def get_image(self, index):
         AB_path = self.AB_paths[index]
