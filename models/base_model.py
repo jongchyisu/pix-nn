@@ -42,7 +42,7 @@ class BaseModel():
         pass
 
     # helper saving function that can be used by subclasses
-    def save_network(self, network, network_label, epoch_label, gpu_ids):
+    def save_network(self, network, network_label, epoch_label):
         save_filename = '%s_net_%s.pth' % (epoch_label, network_label)
         save_path = os.path.join(self.save_dir, save_filename)
         network.collect_params().save(save_path)

@@ -9,7 +9,7 @@ from .base_model import BaseModel
 from . import networks
 import mxnet.gluon as gluon
 import mxnet as mx
-from mxnet import autograd
+from mxnet import autograd, gpu
 
 
 class Pix2PixModel(BaseModel):
@@ -18,6 +18,7 @@ class Pix2PixModel(BaseModel):
 
     def initialize(self, opt):
         self.batchSize = opt.batchSize
+        self.context = opt.context
 
         BaseModel.initialize(self, opt)
         self.isTrain = opt.isTrain
@@ -33,12 +34,12 @@ class Pix2PixModel(BaseModel):
 
         # load/define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
-                                      opt.which_model_netG, opt.norm, opt.use_dropout, self.gpu_ids)
+                                      opt.which_model_netG, opt.norm, opt.use_dropout, opt.context)
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf,
-                                          opt.which_model_netD,
-                                          opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
+                                          opt.which_model_netD, opt.n_layers_D,
+                                          opt.norm, use_sigmoid, opt.context)
         if not self.isTrain or opt.continue_train:
             self.load_network(self.netG, 'G', opt.which_epoch)
             if self.isTrain:
@@ -48,7 +49,7 @@ class Pix2PixModel(BaseModel):
             self.fake_AB_pool = ImagePool(opt.pool_size)
             self.old_lr = opt.lr
             # define loss functions
-            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan)
+            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, context=self.context)
             # self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
             self.criterionL1 = gluon.loss.L1Loss()
             # self.criterionL1 = torch.nn.L1Loss()
@@ -80,8 +81,10 @@ class Pix2PixModel(BaseModel):
 
     def set_input(self, input):
         AtoB = self.opt.which_direction == 'AtoB'
-        self.input_A = input.data[0]
-        self.input_B = input.data[1]
+        # self.input_A = input.data[0]
+        # self.input_B = input.data[1]
+        self.input_A = gluon.utils.split_and_load(input.data[0], self.context)[0]
+        self.input_B = gluon.utils.split_and_load(input.data[1], self.context)[0]
         # input_A = input.data[0].as_in_context(context)
         # input_B = input.data[1].as_in_context(context)
 
@@ -172,8 +175,8 @@ class Pix2PixModel(BaseModel):
         return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
     def save(self, label):
-        self.save_network(self.netG, 'G', label, self.gpu_ids)
-        self.save_network(self.netD, 'D', label, self.gpu_ids)
+        self.save_network(self.netG, 'G', label)
+        self.save_network(self.netD, 'D', label)
 
     def update_learning_rate(self):
         lrd = self.opt.lr / self.opt.niter_decay

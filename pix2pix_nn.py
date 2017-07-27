@@ -3,8 +3,8 @@ import logging
 import numpy as np
 import mxnet as mx
 import sys
-from tensorboard import summary
-from tensorboard import FileWriter
+#from tensorboard import summary
+#from tensorboard import FileWriter
 from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
