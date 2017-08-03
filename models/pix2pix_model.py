@@ -178,12 +178,12 @@ class Pix2PixModel(BaseModel):
         self.save_network(self.netG, 'G', label)
         self.save_network(self.netD, 'D', label)
 
-    def update_learning_rate(self):
-        lrd = self.opt.lr / self.opt.niter_decay
-        lr = self.old_lr - lrd
-        for param_group in self.optimizer_D.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G.param_groups:
-            param_group['lr'] = lr
-        print('update learning rate: %f -> %f' % (self.old_lr, lr))
-        self.old_lr = lr
+    # def update_learning_rate(self):
+    #     lrd = self.opt.lr / self.opt.niter_decay
+    #     lr = self.old_lr - lrd
+    #     for param_group in self.optimizer_D.param_groups:
+    #         param_group['lr'] = lr
+    #     for param_group in self.optimizer_G.param_groups:
+    #         param_group['lr'] = lr
+    #     print('update learning rate: %f -> %f' % (self.old_lr, lr))
+    #     self.old_lr = lr

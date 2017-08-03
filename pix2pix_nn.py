@@ -71,8 +71,8 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
-    if epoch > opt.niter:
-        model.update_learning_rate()
+    # if epoch > opt.niter:
+    #     model.update_learning_rate()
 
 # # close summary_writer
 # summary_writer.close()
