@@ -4,7 +4,7 @@ Follow the instructions from the original [pix2pix github](https://github.com/ju
 
 Run the training code like this:
 ```
-python pix2pix_nn.py  --dataroot dataset/maps --name maps_pix2pix_unet_256 --which_model_netG unet_256 --gpu_ids 1 --lambda_A 100 --print_freq 100 --display_freq 100 --port 8098
+python pix2pix_nn.py  --dataroot dataset/maps --name maps_pix2pix_unet_256 --which_model_netG unet_256 --gpu_ids 1 --lambda_A 100 --print_freq 100 --display_freq 100 --port 8098 --no_lsgan
 ```
 
 Open visdom server:

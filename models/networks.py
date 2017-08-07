@@ -60,16 +60,16 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
     return netG
 
 
-def define_D(input_nc, ndf, which_model_netD, n_layers_D=3, norm='batch', use_sigmoid=False, context=mx.cpu()):
+def define_D(input_nc, ndf, which_model_netD, n_layers_D=3, norm='batch', context=mx.cpu()):
     # netD = None
     # use_gpu = len(gpu_ids) > 0
     norm_layer = get_norm_layer(norm_type=norm)
     # if use_gpu:
     #     assert(torch.cuda.is_available())
     if which_model_netD == 'basic':
-        netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
+        netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
     elif which_model_netD == 'n_layers':
-        netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
+        netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer)
     else:
         raise NotImplementedError('Discriminator model name [%s] is not recognized' %
                                   which_model_netD)
@@ -109,10 +109,10 @@ class GANLoss(gluon.Block):
         # self.Tensor = tensor
         if use_lsgan:
             self.loss = gluon.loss.L1Loss()
-        else:
-            # nn.BCEloss in pytorch original implementation, fixed weight for now...
-            self.loss = gluon.loss.SoftmaxCrossEntropyLoss(sparse_label=False,
-                        from_logits=True, axis=[-1,-2], weight=1.0/(35*35))
+        # else:
+            # nn.BCEloss in pytorch original implementation, but there is no BCEloss in mxnet...
+            # self.loss = gluon.loss.SoftmaxCrossEntropyLoss(sparse_label=False,
+            #             from_logits=True, axis=[-1,-2], weight=1.0/(35*35))
 
     def get_target_tensor(self, input, target_is_real):
         target_tensor = None
@@ -134,10 +134,17 @@ class GANLoss(gluon.Block):
 
     def __call__(self, input, target_is_real):
         target_tensor = self.get_target_tensor(input, target_is_real)
-        if not self.use_lsgan:
-            log_input = mx.nd.log(input)
-            log_input_ = mx.nd.log(1.0-input)
-            return self.loss(log_input, target_tensor) + self.loss(log_input_, 1.0-target_tensor)
+        if not self.use_lsgan: # use BCEloss
+            ## not stable...
+            # log_input = mx.nd.log(input)
+            # log_input_ = mx.nd.log(1.0-input)
+            # return self.loss(log_input, target_tensor) + self.loss(log_input_, 1.0-target_tensor)
+
+            ## stable version
+            neg_abs = - mx.nd.abs(input)
+            # no clamp in mxnet??
+            loss_all = mx.nd.clip(input,0.0,10000000) - input*target_tensor + mx.nd.log(1+mx.nd.exp(neg_abs))
+            return mx.nd.mean(loss_all)
         else:
             return self.loss(input, target_tensor) + self.loss(1.0-input, 1.0-target_tensor)
 
@@ -353,7 +360,7 @@ class UnetSkipConnectionBlock(gluon.Block):
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(gluon.Block):
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm, use_sigmoid=False):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm):
         super(NLayerDiscriminator, self).__init__()
 
         model = nn.Sequential(prefix='netD_')
@@ -381,8 +388,6 @@ class NLayerDiscriminator(gluon.Block):
 
             model.add(nn.Conv2D(1, kernel_size=kw, stride=(1,1), padding=padw))
 
-            if use_sigmoid:
-                model.add(nn.Sigmoid())
 
         self.model = model
         # self.model = nn.Sequential(sequence)
