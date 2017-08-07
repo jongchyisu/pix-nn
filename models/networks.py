@@ -109,7 +109,8 @@ class GANLoss(gluon.Block):
         if use_lsgan:
             self.loss = gluon.loss.L1Loss()
         else:
-            self.loss = gluon.loss.SoftmaxCrossEntropyLoss()
+            # nn.BCEloss in pytorch original implementation
+            self.loss = gluon.loss.SoftmaxCrossEntropyLoss(sparse_label=False)#from_logits=False
 
     def get_target_tensor(self, input, target_is_real):
         target_tensor = None
