@@ -105,12 +105,14 @@ class GANLoss(gluon.Block):
         self.fake_label = target_fake_label
         self.real_label_var = None
         self.fake_label_var = None
+        self.use_lsgan = use_lsgan
         # self.Tensor = tensor
         if use_lsgan:
             self.loss = gluon.loss.L1Loss()
         else:
-            # nn.BCEloss in pytorch original implementation
-            self.loss = gluon.loss.SoftmaxCrossEntropyLoss(sparse_label=False)#from_logits=False
+            # nn.BCEloss in pytorch original implementation, fixed weight for now...
+            self.loss = gluon.loss.SoftmaxCrossEntropyLoss(sparse_label=False,
+                        from_logits=True, axis=[-1,-2], weight=1.0/(35*35))
 
     def get_target_tensor(self, input, target_is_real):
         target_tensor = None
@@ -132,7 +134,12 @@ class GANLoss(gluon.Block):
 
     def __call__(self, input, target_is_real):
         target_tensor = self.get_target_tensor(input, target_is_real)
-        return self.loss(input, target_tensor)
+        if not self.use_lsgan:
+            log_input = mx.nd.log(input)
+            log_input_ = mx.nd.log(1.0-input)
+            return self.loss(log_input, target_tensor) + self.loss(log_input_, 1.0-target_tensor)
+        else:
+            return self.loss(input, target_tensor) + self.loss(1.0-input, 1.0-target_tensor)
 
 
 # Defines the generator that consists of Resnet blocks between a few

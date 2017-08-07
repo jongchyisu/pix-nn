@@ -68,5 +68,17 @@ class Sigmoid(HybridBlock):
     def __repr__(self):
         s = '{name}'
         return s.format(name=self.__class__.__name__)
+
+
+class log(HybridBlock):
+    def __init__(self, **kwargs):
+        super(log, self).__init__(**kwargs)
+
+    def hybrid_forward(self, F, x):
+        return F. log(x)
+
+    def __repr__(self):
+        s = '{name}'
+        return s.format(name=self.__class__.__name__)
 ```
 
