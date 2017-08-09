@@ -12,26 +12,6 @@ import mxnet as mx
 from mxnet import autograd, gpu
 
 
-def _get_lr_scheduler(args, kv):
-    if 'lr_factor' not in args or args.lr_factor >= 1:
-        return (args.lr, None)
-    epoch_size = args.num_examples / args.batch_size
-    if 'dist' in args.kv_store:
-        epoch_size /= kv.num_workers
-    begin_epoch = args.load_epoch if args.load_epoch else 0
-    step_epochs = [int(l) for l in args.lr_step_epochs.split(',')]
-    lr = args.lr
-    for s in step_epochs:
-        if begin_epoch >= s:
-            lr *= args.lr_factor
-    if lr != args.lr:
-        logging.info('Adjust learning rate to %e for epoch %d' %(lr, begin_epoch))
-
-    steps = [epoch_size * (x-begin_epoch) for x in step_epochs if x-begin_epoch > 0]
-    return (lr, mx.lr_scheduler.MultiFactorScheduler(step=steps, factor=args.lr_factor))
-
-
-
 class Pix2PixModel(BaseModel):
     def name(self):
         return 'Pix2PixModel'
@@ -82,10 +62,13 @@ class Pix2PixModel(BaseModel):
             # self.netD.collect_params().initialize(init_normal, ctx=opt.context)
 
             # initialize optimizers
+            nbatch = np.ceil(opt.dataset_size*1.0 / opt.batchSize)
+
+            lr_sch = mx.lr_scheduler.LinearScheduler(step=nbatch, niter=opt.niter * nbatch, niter_decay=opt.niter_decay, init_lr=opt.lr)
             self.optimizer_G = gluon.Trainer(self.netG.collect_params(), 'Adam',
-                                             {'learning_rate':opt.lr, 'beta1':0.999})
+                                             {'learning_rate':opt.lr, 'beta1':0.999, 'lr_scheduler':lr_sch})
             self.optimizer_D = gluon.Trainer(self.netD.collect_params(), 'Adam',
-                                             {'learning_rate':opt.lr, 'beta1':0.999})
+                                             {'learning_rate':opt.lr, 'beta1':0.999, 'lr_scheduler':lr_sch})
 
         print('---------- Networks initialized -------------')
         networks.print_network(self.netG)
@@ -194,6 +177,9 @@ class Pix2PixModel(BaseModel):
         self.backward_G()
         self.optimizer_G.step(self.batchSize)
 
+        print 'num_update', self.optimizer_G._optimizer.num_update
+        print 'lr_G: ', self.optimizer_G._optimizer.lr_scheduler(self.optimizer_G._optimizer.num_update)
+        print 'lr_D: ', self.optimizer_G._optimizer.lr_scheduler(self.optimizer_G._optimizer.num_update)
 
     def get_current_errors(self):
         return OrderedDict([('G_GAN', self.loss_G_GAN.asnumpy()[0]),
@@ -212,12 +198,3 @@ class Pix2PixModel(BaseModel):
         self.save_network(self.netG, 'G', label)
         self.save_network(self.netD, 'D', label)
 
-    # def update_learning_rate(self):
-    #     lrd = self.opt.lr / self.opt.niter_decay
-    #     lr = self.old_lr - lrd
-    #     for param_group in self.optimizer_D.param_groups:
-    #         param_group['lr'] = lr
-    #     for param_group in self.optimizer_G.param_groups:
-    #         param_group['lr'] = lr
-    #     print('update learning rate: %f -> %f' % (self.old_lr, lr))
-    #     self.old_lr = lr

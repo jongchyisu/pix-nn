@@ -14,8 +14,47 @@ python -m visdom.server -port 8098
 
 Then you can got to localhost:8098 to see the training curves and results.
 
-### [Note:] Need to add following lines in 'mxnet/python/mxnet/gluon/loss.py'
 
+### [Note:] Need to add following lines in 'mxnet/python/mxnet/lr_scheduler.py'
+```python
+class LinearScheduler(LRScheduler):
+    """Reduce the learning rate by a factor for every *n* steps.
+
+    It returns a new learning rate by::
+
+        base_lr * pow(factor, floor(num_update/step))
+
+    Parameters
+    ----------
+    step : int
+        Changes the learning rate for every n epoch.
+    niter : int
+        # of epochs at starting learning rate
+    niter_decay : int
+        # of epochs to linearly decay learning rate to zero.
+    init_lr : float, optional
+        Initial learning rate before the first (niter) epoch.
+    """
+    def __init__(self, step=1, niter=100, niter_decay=100, init_lr=0.0002):
+        super(LinearScheduler, self).__init__()
+        if step < 1:
+            raise ValueError("Schedule step must be greater or equal than 1 round")
+        self.step = step
+        self.niter = niter
+        self.niter_decay = niter_decay
+        self.init_lr = init_lr
+        self.lrd = init_lr / niter_decay
+        self.count = 0
+
+    def __call__(self, num_update):
+        # NOTE: use while rather than if  (for continuing training via load_epoch)
+        while num_update > self.count + self.step:
+            self.count += self.step
+            self.base_lr -= self.lrd
+        return self.base_lr
+```
+
+### [Note:] Need to add following lines in 'mxnet/python/mxnet/gluon/loss.py'
 ```python
 class SigmoidCrossEntropyLoss(Loss):
     def __init__(self, weight=None, batch_axis=0, **kwargs):
@@ -29,7 +68,6 @@ class SigmoidCrossEntropyLoss(Loss):
 ```
 
 ### [Note:] Need to add following lines in 'gluon/nn/basic_layers.py'
-
 ```python
 class pad(HybridBlock):
     def __init__(self, pad_width, mode, **kwargs):

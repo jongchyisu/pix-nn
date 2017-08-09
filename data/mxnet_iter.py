@@ -93,16 +93,18 @@ class AlignedIter(mx.io.DataIter):
 
         # flipping
         if (not self.opt.no_flip) and random.random() < 0.5:
-            A = mx.ndarray.reverse(A, axis=1)
-            B = mx.ndarray.reverse(B, axis=1)
+            A = mx.nd.reverse(A, axis=1)
+            B = mx.nd.reverse(B, axis=1)
 
         # change to BCWH format
-        A = mx.ndarray.swapaxes(A, 0, 2)
-        A = mx.ndarray.swapaxes(A, 1, 2)
-        A = mx.ndarray.expand_dims(A, axis=0)
-        B = mx.ndarray.swapaxes(B, 0, 2)
-        B = mx.ndarray.swapaxes(B, 1, 2)
-        B = mx.ndarray.expand_dims(B, axis=0)
+        A = mx.nd.transpose(A, (2, 0, 1))
+        # A = mx.nd.swapaxes(A, 0, 2)
+        # A = mx.nd.swapaxes(A, 1, 2)
+        A = mx.nd.expand_dims(A, axis=0)
+        B = mx.nd.transpose(B, (2, 0, 1))
+        # B = mx.nd.swapaxes(B, 0, 2)
+        # B = mx.nd.swapaxes(B, 1, 2)
+        B = mx.nd.expand_dims(B, axis=0)
 
         return A,B
         # return {'A': A, 'B': B,'A_paths': AB_path, 'B_paths': AB_path}

@@ -22,8 +22,8 @@ else:
 # dataset = data_loader.load_data()
 # dataset_size = data_loader.dataset.dataset_len
 data_iter = AlignedIter(opt)
-dataset_size = data_iter.dataset_len
-print('#training images = %d' % dataset_size)
+opt.dataset_size = data_iter.dataset_len
+print('#training images = %d' % opt.dataset_size)
 
 # # TensorBoard logging file
 # logdir = './logs/'
@@ -39,11 +39,11 @@ total_steps = 0
 for epoch in range(1, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
     data_iter.reset()
-    # for i, data in enumerate(dataset):#data_loader.dataset
+
     for data in data_iter:
         iter_start_time = time.time()
         total_steps += opt.batchSize
-        epoch_iter = total_steps - dataset_size * (epoch - 1)
+        epoch_iter = total_steps - opt.dataset_size * (epoch - 1)
         model.set_input(data)
         model.optimize_parameters()
 
@@ -55,7 +55,7 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
             t = (time.time() - iter_start_time) / opt.batchSize
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
             if opt.display_id > 0:
-                visualizer.plot_current_errors(epoch, float(epoch_iter)/dataset_size, opt, errors)
+                visualizer.plot_current_errors(epoch, float(epoch_iter)/opt.dataset_size, opt, errors)
 
         if total_steps % opt.save_latest_freq == 0:
             print('saving the latest model (epoch %d, total_steps %d)' %
@@ -71,9 +71,10 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
-    ## TODO: learning rate decay in original implementation
-    # if epoch > opt.niter:
-    #     model.update_learning_rate()
+    if epoch > opt.niter:
+        # lr linear decay, implemented in lr_scheduler which is fed into optimizer
+        print 'lr_G: ', self.optimizer_G._optimizer._get_lr
+        print 'lr_D: ', self.optimizer_D._optimizer._get_lr
 
 # # close summary_writer
 # summary_writer.close()
