@@ -4,6 +4,7 @@ from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
 from PIL import Image
 import mxnet as mx
+import cv2
 
 class AlignedIter(mx.io.DataIter):
     def __init__(self, opt):
@@ -66,7 +67,7 @@ class AlignedIter(mx.io.DataIter):
         
         ## resize to w x h
         ## TODO: make sure it's bicubic
-        img = mx.image.imresize(img, self.opt.loadSize * 2, self.opt.loadSize)
+        img = mx.image.imresize(img, self.opt.loadSize * 2, self.opt.loadSize, interp = cv2.INTER_CUBIC)
         
         # convert to [0,1] then normalize
         img = img.astype('float32')
@@ -97,8 +98,10 @@ class AlignedIter(mx.io.DataIter):
 
         # change to BCWH format
         A = mx.ndarray.swapaxes(A, 0, 2)
+        A = mx.ndarray.swapaxes(A, 1, 2)
         A = mx.ndarray.expand_dims(A, axis=0)
         B = mx.ndarray.swapaxes(B, 0, 2)
+        B = mx.ndarray.swapaxes(B, 1, 2)
         B = mx.ndarray.expand_dims(B, axis=0)
 
         return A,B

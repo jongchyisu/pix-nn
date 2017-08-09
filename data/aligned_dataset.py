@@ -84,8 +84,7 @@ class AlignedDataset(BaseDataset):
         img = mx.image.imdecode(open(AB_path).read()) # default is RGB
         
         ## resize to w x h
-        ## TODO: make sure it's bicubic
-        img = mx.image.imresize(img, self.opt.loadSize * 2, self.opt.loadSize)
+        img = mx.image.imresize(img, self.opt.loadSize, self.opt.loadSize * 2, interp = cv2.INTER_CUBIC)
         
         # convert to [0,1] then normalize
         img = img.astype('float32')
@@ -115,9 +114,11 @@ class AlignedDataset(BaseDataset):
             B = mx.ndarray.reverse(B, axis=1)
 
         # change to BCWH format
-        A = mx.ndarray.swapaxes(A, 0, 2)
+        A = mx.ndarray.rollaxis(A, 0, 2)
+        A = mx.ndarray.rollaxis(A, 1, 2)
         A = mx.ndarray.expand_dims(A, axis=0)
         B = mx.ndarray.swapaxes(B, 0, 2)
+        B = mx.ndarray.swapaxes(B, 1, 2)
         B = mx.ndarray.expand_dims(B, axis=0)
 
         return A,B

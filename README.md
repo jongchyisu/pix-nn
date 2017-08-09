@@ -9,11 +9,24 @@ python pix2pix_nn.py  --dataroot dataset/maps --name maps_pix2pix_unet_256 --whi
 
 Open visdom server:
 ```
-python -m visdom.server
+python -m visdom.server -port 8098
 ```
 
 Then you can got to localhost:8098 to see the training curves and results.
 
+### [Note:] Need to add following lines in 'mxnet/python/mxnet/gluon/loss.py'
+
+```python
+class SigmoidCrossEntropyLoss(Loss):
+    def __init__(self, weight=None, batch_axis=0, **kwargs):
+        super(SigmoidCrossEntropyLoss, self).__init__(weight, batch_axis, **kwargs)
+
+    def hybrid_forward(self, F, output, label, sample_weight=None):
+        neg_abs = - F.abs(output)
+        loss = F.maximum(output,0.0) - output*label + F.log(1.0 + F.exp(neg_abs))
+        loss = _apply_weighting(F, loss, self._weight, sample_weight)
+        return F.mean(loss, axis=self._batch_axis, exclude=True)
+```
 
 ### [Note:] Need to add following lines in 'gluon/nn/basic_layers.py'
 

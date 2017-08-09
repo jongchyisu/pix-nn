@@ -109,7 +109,8 @@ class GANLoss(gluon.Block):
         # self.Tensor = tensor
         if use_lsgan:
             self.loss = gluon.loss.L1Loss()
-        # else:
+        else:
+            self.loss = gluon.loss.SigmoidCrossEntropyLoss()
             # nn.BCEloss in pytorch original implementation, but there is no BCEloss in mxnet...
             # self.loss = gluon.loss.SoftmaxCrossEntropyLoss(sparse_label=False,
             #             from_logits=True, axis=[-1,-2], weight=1.0/(35*35))
@@ -134,19 +135,24 @@ class GANLoss(gluon.Block):
 
     def __call__(self, input, target_is_real):
         target_tensor = self.get_target_tensor(input, target_is_real)
-        if not self.use_lsgan: # use BCEloss
+        if not self.use_lsgan: 
+            # use BCEloss
             ## not stable...
             # log_input = mx.nd.log(input)
             # log_input_ = mx.nd.log(1.0-input)
             # return self.loss(log_input, target_tensor) + self.loss(log_input_, 1.0-target_tensor)
 
             ## stable version
-            neg_abs = - mx.nd.abs(input)
-            # no clamp in mxnet??
-            loss_all = mx.nd.clip(input,0.0,10000000) - input*target_tensor + mx.nd.log(1+mx.nd.exp(neg_abs))
-            return mx.nd.mean(loss_all)
+            # input = mx.nd.flatten(input)
+            # target_tensor = mx.nd.flatten(target_tensor)
+            # neg_abs = - mx.nd.abs(input)
+            # loss_all = mx.nd.maximum(input,0.0) - input*target_tensor + mx.nd.log(1.0+mx.nd.exp(neg_abs))
+            # return mx.nd.mean(loss_all)
+            # return mx.nd.mean(mx.nd.LogisticRegressionOutput(mx.nd.flatten(input), mx.nd.flatten(target_tensor)))
+            return self.loss(input, target_tensor)
         else:
-            return self.loss(input, target_tensor) + self.loss(1.0-input, 1.0-target_tensor)
+            # use L1loss
+            return self.loss(input, target_tensor)
 
 
 # Defines the generator that consists of Resnet blocks between a few
@@ -366,7 +372,7 @@ class NLayerDiscriminator(gluon.Block):
         model = nn.Sequential(prefix='netD_')
         with model.name_scope():
             kw = 4
-            padw = int(np.ceil((kw-1)/2.0))
+            padw = int(np.ceil((kw-1)/2))
             model.add(nn.Conv2D(ndf, kernel_size=kw, stride=(2,2), padding=padw))
             model.add(nn.LeakyReLU(0.2))
 
